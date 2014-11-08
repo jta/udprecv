@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+""" jsonrecv - pretty print JSON data received over UDP.
+    Example use of UdpRecv library
+"""
+from __future__ import print_function
+import argparse
+import json
+import sys
+
+from udprecv import UdpRecv, UdpRecvError
+from pprint import pprint
+
+def ntimes(func, count):
+    """ Raise StopIteration after `count` function calls. """
+    func.count = count
+    def wrapped(*args):
+        """ Call handler and check count. """
+        func(*args)
+        if func.count is not None:
+            func.count -= 1
+            if not func.count:
+                raise StopIteration
+    return wrapped
+
+def handle_msg(source, msg):
+    """ Print JSON object. """
+    pprint(msg)
+
+def handle_error(exc, data, addr, port):
+    """ Print error message """
+    print("{0}: {1}".format(exc, data))
+
+def parse_args():
+    """ Parse command line arguments. """
+    parser = argparse.ArgumentParser(description='jsonrecv')
+    parser.add_argument('-a', '--addr', default='::', type=str,
+                        help='IP address to bind to.')
+    parser.add_argument('-c', '--count', type=int, default=None,
+                        help='Number of packets to process.')
+    parser.add_argument('-t', '--timeout', type=int, default=None,
+                        help='Number of seconds to run.')
+    parser.add_argument('ports', nargs='+', type=int,
+                        help='Ports to listen on.')
+    return parser.parse_args()
+
+def main():
+    """ Run. """
+    args = parse_args()
+    try:
+        recv = UdpRecv(args.ports, args.addr)
+    except UdpRecvError as err:
+        sys.exit(err)
+
+    recv.set_reader(json.loads)
+    recv.set_error_handler((ValueError), handle_error)
+    recv.add_callback(ntimes(handle_msg, args.count))
+    recv.start()
+    try:
+        recv.join(args.timeout)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        recv.stop()
+
+if __name__ == '__main__':
+    main()
