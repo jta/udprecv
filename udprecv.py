@@ -1,6 +1,6 @@
 """ Provides a thread class to process UDP packets. """
 from __future__ import print_function
-from collections import defaultdict, Counter
+from collections import defaultdict
 from binascii import hexlify
 import select
 import socket
@@ -45,7 +45,7 @@ class UdpRecv(threading.Thread):
     @count.setter
     def count(self, value):
         """ Used to increment count. If count exceeds maxcount, stop loop. """
-        self._count += 1
+        self._count += value
         if self.maxcount and self._count >= self.maxcount:
             raise StopIteration
 
