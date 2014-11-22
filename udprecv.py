@@ -1,6 +1,6 @@
 """ Provides a thread class to process UDP packets. """
 from __future__ import print_function
-from collections import defaultdict
+from collections import defaultdict, Counter
 from binascii import hexlify
 import select
 import socket
@@ -16,22 +16,38 @@ class UdpRecv(threading.Thread):
         Deals with v6 natively, and treats legacy v4 case by mapping to
         and from appropriate v6 address range.
     """
-    def __init__(self, ports, localaddr='::', bufsize=1500):
+    def __init__(self, ports, localaddr='::', bufsize=1500, maxcount=None):
         """
         :param ports: list of ports to listen on
         :param localaddr: IP address to bind to
         :param bufsize: max buffer size when reading from socket
+        :param maxcount: total number of packets to process before stopping
         """
         v6addr = self._map_v6(localaddr)
         self.sockets = [self.get_socket(v6addr, p) for p in ports]
 
         self.bufsize = bufsize
         self.callbacks = defaultdict(list)
+        self.maxcount = maxcount
+        self._count = 0
         self.excs = ()
         self.errhandler = None
         self.reader = None
 
         threading.Thread.__init__(self)
+        self.daemon = True
+
+    @property
+    def count(self):
+        """ Number of messages seen so far. """
+        return self._count
+
+    @count.setter
+    def count(self, value):
+        """ Used to increment count. If count exceeds maxcount, stop loop. """
+        self._count += 1
+        if self.maxcount and self._count >= self.maxcount:
+            raise StopIteration
 
     @classmethod
     def _map_v6(cls, addr):
@@ -121,13 +137,17 @@ class UdpRecv(threading.Thread):
 
     def run(self):
         """ Read packets from socket list. """
-        try:
-            while self.sockets:
+        while self.sockets:
+            try:
                 ready, _, _ = select.select(self.sockets, [], [], 0.1)
                 for sock in ready:
                     self.read(sock)
-        except StopIteration:
-            pass
+                    self.count += 1
+            except select.error:
+                if self.sockets:
+                    raise
+            except StopIteration:
+                self.stop()
 
     def stop(self):
         """ Close list of sockets, halting run loop. """

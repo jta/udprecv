@@ -10,18 +10,6 @@ import sys
 from udprecv import UdpRecv, UdpRecvError
 from pprint import pprint
 
-def ntimes(func, count):
-    """ Raise StopIteration after `count` function calls. """
-    func.count = count
-    def wrapped(*args):
-        """ Call handler and check count. """
-        func(*args)
-        if func.count is not None:
-            func.count -= 1
-            if not func.count:
-                raise StopIteration
-    return wrapped
-
 def handle_msg(source, msg):
     """ Print JSON object. """
     pprint(msg)
@@ -47,13 +35,13 @@ def main():
     """ Run. """
     args = parse_args()
     try:
-        recv = UdpRecv(args.ports, args.addr)
+        recv = UdpRecv(args.ports, args.addr, maxcount=args.count)
     except UdpRecvError as err:
         sys.exit(err)
 
     recv.set_reader(json.loads)
     recv.set_error_handler((ValueError), handle_error)
-    recv.add_callback(ntimes(handle_msg, args.count))
+    recv.add_callback(handle_msg)
     recv.start()
     try:
         recv.join(args.timeout)

@@ -11,7 +11,7 @@ from udprecv import UdpRecv
 from pprint import pprint
 recv = UdpRecv(range(1900, 1910))
 test.add_callback(lambda src, msg: pprint(msg))
-test.run()
+test.start()
 test.join()
 ```
 
