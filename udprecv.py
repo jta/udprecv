@@ -9,7 +9,11 @@ __license__ = 'MIT'
 from collections import defaultdict
 from binascii import hexlify
 import IN
-from itertools import ifilterfalse
+try:
+    from itertools import filterfalse
+except ImportError:
+    # Python 2
+    from itertools import ifilterfalse as filterfalse
 import select
 import socket
 import struct
