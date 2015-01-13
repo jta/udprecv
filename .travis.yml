@@ -5,4 +5,7 @@ python:
   - "3.2"
   - "3.3"
   - "3.4"
+install:
+  # used for testing only
+  - pip install mock
 script: nosetests

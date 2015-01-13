@@ -1,5 +1,6 @@
 """ Test Configuration
 """
+import mock
 from nose.tools import raises, timed
 import socket
 import time
@@ -10,8 +11,11 @@ import udprecv
 class TestUdpRecv(unittest.TestCase):
 
     def setUp(self):
+        self.mock = mock.Mock()
+        self.mock.side_effect = StopIteration
         self.args = []
         self.recv = udprecv.UdpRecv([1666, ])
+        self.recv.add_callback(self.mock)
         self.recv.start()
 
         self.teststr = 'test'.encode('UTF-8')
@@ -26,31 +30,27 @@ class TestUdpRecv(unittest.TestCase):
         sock.sendto(msg, addr)
         time.sleep(0.05)
 
-    def register_cb(self, *args):
-        """ Register function call arguments. """
-        self.args.append(args)
-        raise StopIteration
-
     def reraise(self, exc, data, addr, port):
         raise exc
 
     def test_recv_ipv4(self):
         """ Send and receive single packet over IPv4. """
-        assert not self.args
-        self.recv.add_callback(self.register_cb)
         self.sendto(self.teststr, ('127.0.0.1', 1666), socket.AF_INET)
-        assert self.args == [('127.0.0.1', self.teststr)]
+        args, kwargs = self.mock.call_args
+        (addr, _, _), message = args
+        assert addr, message == ('127.0.0.1', self.teststr)
 
     def test_recv_ipv6(self):
         """ Send and receive single packet over IPv4. """
-        assert not self.args
-        self.recv.add_callback(self.register_cb)
         self.sendto(self.teststr, ('::1', 1666, 0, 0), socket.AF_INET6)
-        assert self.args == [('::1', self.teststr)]
+        args, kwargs = self.mock.call_args
+        (addr, _, _), message = args
+        assert addr, message == ('::1', self.teststr)
 
     def test_reader(self):
         self.recv.set_reader(int)
-        self.recv.add_callback(self.register_cb)
         self.sendto(self.testnum, ('::1', 1666, 0, 0), socket.AF_INET6)
-        assert self.args == [('::1', int(self.testnum))]
+        args, kwargs = self.mock.call_args
+        (addr, _, _), message = args
+        assert addr, message == ('::1', int(self.teststr))
 
