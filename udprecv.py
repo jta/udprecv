@@ -3,7 +3,7 @@
 from __future__ import print_function
 
 __author__ = 'João Taveira Araújo'
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 __license__ = 'MIT'
 
 from collections import defaultdict
@@ -67,9 +67,10 @@ class UdpRecv(threading.Thread):
 
         for port in self.ports:
             sock = self.get_socket(self.addr, port, intf=ifname)
-            self.sockets.append(sock)
             self.sockintf[sock] = ifname
-        if self.intfs:
+            self.sockets.append(sock)
+
+        if self.intfs is not None:
             self.intfs.add(ifname)
 
     def del_interface(self, ifname):
