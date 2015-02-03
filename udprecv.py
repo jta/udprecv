@@ -1,9 +1,9 @@
-""" Provides a thread class to process UDP packets. """
 # -*- coding: utf-8 -*-
+""" Provides a thread class to process UDP packets. """
 from __future__ import print_function
 
 __author__ = 'João Taveira Araújo'
-__version__ = '0.0.3'
+__version__ = '0.0.4'
 __license__ = 'MIT'
 
 from collections import defaultdict
