@@ -3,7 +3,7 @@
 from __future__ import print_function
 
 __author__ = 'João Taveira Araújo'
-__version__ = '0.0.4'
+__version__ = '0.0.5'
 __license__ = 'MIT'
 
 from collections import defaultdict
@@ -82,7 +82,7 @@ class UdpRecv(threading.Thread):
             return
         self.intfs.remove(ifname)
         unmatched = lambda x: self.sockintf[x] != ifname
-        for sock in ifilterfalse(unmatched, self.sockets):
+        for sock in filterfalse(unmatched, self.sockets):
             del self.sockintf[sock]
             sock.close()
         self.sockets = [s for s in self.sockets if unmatched(s)]
