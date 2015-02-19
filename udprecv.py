@@ -14,10 +14,13 @@ try:
 except ImportError:
     # Python 2
     from itertools import ifilterfalse as filterfalse
+import logging
 import select
 import socket
 import struct
 import threading
+
+log = logging.getLogger(__name__) # pylint: disable=invalid-name
 
 class UdpRecvError(Exception):
     """ Raised on internal errors. """
@@ -63,6 +66,7 @@ class UdpRecv(threading.Thread):
         """ Bind on additional interface. """
         if self.intfs is None and ifname is not None:
             err = "Can't add interfaces to previously wildcarded instance."
+            log.error(err)
             raise RuntimeError(err)
 
         for port in self.ports:
@@ -85,7 +89,7 @@ class UdpRecv(threading.Thread):
         for sock in filterfalse(unmatched, self.sockets):
             self.sockintf.pop(sock, None)
             sock.close()
-        self.sockets = [s for s in self.sockets if unmatched(s)]
+        self.sockets = self.sockintf.keys()
 
     @property
     def count(self):
