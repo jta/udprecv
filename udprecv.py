@@ -3,7 +3,7 @@
 from __future__ import print_function
 
 __author__ = 'João Taveira Araújo'
-__version__ = '0.0.6'
+__version__ = '0.0.7'
 __license__ = 'MIT'
 
 from collections import defaultdict
@@ -39,16 +39,9 @@ class UdpRecv(threading.Thread):
         :param maxcount: total number of packets to process before stopping
         """
         self.addr = self._map_v6(localaddr)
-        self.intfs = set(intfs) if intfs is not None else None
-        self.ports = ports
         self.sockets = []
-        self.sockintf = {}
-
-        if intfs is None:
-            self.add_interface(None)
-        else:
-            for intf in intfs:
-                self.add_interface(intf)
+        self.sockpair = {}
+        self.pairsock = {}
 
         self.bufsize = bufsize
         self.callbacks = defaultdict(list)
@@ -62,34 +55,27 @@ class UdpRecv(threading.Thread):
         threading.Thread.__init__(self)
         self.daemon = True
 
-    def add_interface(self, ifname):
-        """ Bind on additional interface. """
-        if self.intfs is None and ifname is not None:
-            err = "Can't add interfaces to previously wildcarded instance."
-            log.error(err)
-            raise RuntimeError(err)
+    def add_socket(self, *args):
+        if args in self.pairsock:
+            return False
 
-        for port in self.ports:
-            sock = self.get_socket(self.addr, port, intf=ifname)
-            self.sockintf[sock] = ifname
-            self.sockets.append(sock)
+        sock = self.get_socket(self.addr, *args)
+        self.sockets.append(sock)
+        self.sockpair[sock] = args
+        self.pairsock[args] = sock
+        self.sockets = self.sockpair.keys()
+        return True
 
-        if self.intfs is not None:
-            self.intfs.add(ifname)
+    def del_socket(self, *args):
+        if args not in self.pairsock:
+            return False
 
-    def del_interface(self, ifname):
-        """ Remove all sockets belonging to interface. """
-        if self.intfs is None:
-            raise RuntimeError
-
-        if ifname not in self.intfs:
-            return
-        self.intfs.remove(ifname)
-        unmatched = lambda x: self.sockintf.get(x) != ifname
-        for sock in filterfalse(unmatched, self.sockets):
-            self.sockintf.pop(sock, None)
-            sock.close()
-        self.sockets = self.sockintf.keys()
+        sock = self.get_socket(self.addr, *args)
+        sock = self.pairsock.pop(args)
+        del self.sockpair[sock]
+        sock.close()
+        self.sockets = self.sockpair.keys()
+        return True
 
     @property
     def count(self):
@@ -134,10 +120,11 @@ class UdpRecv(threading.Thread):
         return addr
 
     @classmethod
-    def get_socket(cls, localaddr, port, reuse=True, intf=None):
+    def get_socket(cls, localaddr, port, intf, reuse=True):
         """ Open socket and bind to port.
         :param localaddr: string representation of IPv6 address
         :param port: port to bind socket to
+        :param intf: interface to bind on
         :param reuse: boolean as to whether to allow socket reuse.
         """
         sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
@@ -145,12 +132,12 @@ class UdpRecv(threading.Thread):
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             sock.bind((localaddr, port))
+            sock.setblocking(0)
+            if intf:
+                sock.setsockopt(socket.SOL_SOCKET, IN.SO_BINDTODEVICE, intf)
         except socket.error as err:
             sock.close()
             raise UdpRecvError(err)
-        sock.setblocking(0)
-        if intf:
-            sock.setsockopt(socket.SOL_SOCKET, IN.SO_BINDTODEVICE, intf)
         return sock
 
     def add_callback(self, func, filt=None):
@@ -182,9 +169,10 @@ class UdpRecv(threading.Thread):
         addr = self._unmap_v6(addr)
         try:
             message = self.reader(data) if self.reader else data
+            source = [addr, port] + list(self.sockpair[sock])
             for func, filts in self.callbacks.items():
                 if any(f is None or f(message) for f in filts):
-                    func((addr, port, self.sockintf[sock]), message)
+                    func(source, message)
         except self.excs as exc:
             if self.errhandler:
                 self.errhandler(exc, data, addr, port)
