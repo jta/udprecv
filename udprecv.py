@@ -3,7 +3,7 @@
 from __future__ import print_function
 
 __author__ = 'João Taveira Araújo'
-__version__ = '0.0.7'
+__version__ = '0.0.8'
 __license__ = 'MIT'
 
 from collections import defaultdict
@@ -63,7 +63,7 @@ class UdpRecv(threading.Thread):
         self.sockets.append(sock)
         self.sockpair[sock] = args
         self.pairsock[args] = sock
-        self.sockets = self.sockpair.keys()
+        self.sockets = list(self.sockpair.keys())
         return True
 
     def del_socket(self, *args):
@@ -74,7 +74,7 @@ class UdpRecv(threading.Thread):
         sock = self.pairsock.pop(args)
         del self.sockpair[sock]
         sock.close()
-        self.sockets = self.sockpair.keys()
+        self.sockets = list(self.sockpair.keys())
         return True
 
     @property
